@@ -68,13 +68,23 @@ jobs:
 
       - name: Lint Cilium chart
         run: |
-          CHART_VERSION=$(grep 'targetRevision:' infrastructure/cilium/application.yaml | head -1 | awk '{print $2}' | tr -d '"')
+          CHART_VERSION=$(python3 -c "
+          import yaml
+          doc = yaml.safe_load(open('infrastructure/cilium/application.yaml'))
+          srcs = doc['spec']['sources']
+          print(next(s['targetRevision'] for s in srcs if 'chart' in s))
+          ")
           helm pull cilium/cilium --version "$CHART_VERSION" --untar --untardir /tmp/charts
           helm lint /tmp/charts/cilium --values infrastructure/cilium/values.yaml
 
       - name: Lint cert-manager chart
         run: |
-          CHART_VERSION=$(grep 'targetRevision:' infrastructure/cert-manager/application.yaml | head -1 | awk '{print $2}' | tr -d '"')
+          CHART_VERSION=$(python3 -c "
+          import yaml
+          doc = yaml.safe_load(open('infrastructure/cert-manager/application.yaml'))
+          srcs = doc['spec']['sources']
+          print(next(s['targetRevision'] for s in srcs if 'chart' in s))
+          ")
           helm pull jetstack/cert-manager --version "$CHART_VERSION" --untar --untardir /tmp/charts
           helm lint /tmp/charts/cert-manager --values infrastructure/cert-manager/values.yaml
 
@@ -93,7 +103,9 @@ jobs:
 
       - name: Install pluto
         run: |
-          curl -sL https://github.com/FairwindsOps/pluto/releases/latest/download/pluto_linux_amd64.tar.gz \
+          PLUTO_VERSION=$(curl -sf https://api.github.com/repos/FairwindsOps/pluto/releases/latest \
+            | grep '"tag_name"' | cut -d'"' -f4)
+          curl -sL "https://github.com/FairwindsOps/pluto/releases/download/${PLUTO_VERSION}/pluto_${PLUTO_VERSION#v}_linux_amd64.tar.gz" \
             | tar -xz -C /usr/local/bin pluto
 
       - name: Check for deprecated APIs
