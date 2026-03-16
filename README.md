@@ -2,18 +2,19 @@
 
 Argo CD GitOps applications for the OCI free-tier Talos cluster (4× Ampere A1.Flex).
 
-Managed by [omni-oci-proxmox](https://github.com/syscode-labs/omni-oci-proxmox) via Omni SideroLink.
+Nodes are provisioned by [oci-free-tier-manager](https://github.com/syscode-labs/oci-free-tier-manager) and enrolled into Omni via SideroLink.
 
 ## Bootstrap
 
 Argo CD and Cilium are bootstrapped via Talos `cluster.inlineManifests` — no manual install step.
-On first boot, the root App-of-Apps in `bootstrap/` is applied automatically.
+On first boot, the App-of-Apps in `bootstrap/argocd-app-of-apps.yaml` is applied automatically.
 
 ## Structure
 
 ```
-bootstrap/          Application CRDs — Argo CD syncs these on startup
-infrastructure/     Helm values and configs per app
+bootstrap/              App-of-Apps + manually bootstrapped apps (Argo CD, Tailscale operator)
+infrastructure/         Helm charts + values, one directory per app
+clusters/oci/           Cluster-specific kustomize patches
 ```
 
 ## Adding an app

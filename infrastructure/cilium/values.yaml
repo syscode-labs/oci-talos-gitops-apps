@@ -1,0 +1,49 @@
+# Talos-specific Cilium configuration
+# Ref: https://www.talos.dev/v1.12/kubernetes-guides/network/deploying-cilium/
+
+kubeProxyReplacement: true
+
+# Talos local API server endpoint
+k8sServiceHost: localhost
+k8sServicePort: "7445"
+
+# Talos cgroup v2 configuration
+cgroup:
+  autoMount:
+    enabled: false
+  hostRoot: /sys/fs/cgroup
+
+# IPAM mode for Talos
+ipam:
+  mode: kubernetes
+
+# Tunnel mode (compatible with OCI VCN networking)
+tunnel: vxlan
+
+# Security contexts required by Talos
+securityContext:
+  capabilities:
+    ciliumAgent:
+      - CHOWN
+      - KILL
+      - NET_ADMIN
+      - NET_RAW
+      - IPC_LOCK
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cleanCiliumState:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+
+# Hubble observability
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
