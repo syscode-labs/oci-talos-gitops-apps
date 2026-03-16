@@ -1,0 +1,21 @@
+kind: Cluster
+name: oci-talos
+labels:
+  environment: oci
+kubernetes:
+  version: v1.32.3
+talos:
+  version: v1.12.5
+patches:
+  - file: ../patches/cni-none.yaml
+  - file: ../patches/disable-kube-proxy.yaml
+  - file: ../patches/allow-scheduling.yaml
+  - file: ../patches/inline-manifests.yaml
+controlPlane:
+  machineClass:
+    name: oci-cp
+    size: 3
+workers:
+  - machineClass:
+      name: oci-worker
+      size: 1
