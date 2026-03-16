@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generate inline manifest content for oci/patches/inline-manifests.yaml.
+# Generate inline manifest content for omni/patches/inline-manifests.yaml.
 # Run this after version bumps for Cilium or Argo CD, then commit the result.
 #
 # Requirements: helm, curl, yq (or python3)
@@ -81,4 +81,4 @@ ${ARGOCD_CONTENT}
               selfHeal: true
 EOF
 
-echo "==> Done. Commit oci/patches/inline-manifests.yaml."
+echo "==> Done. Commit omni/patches/inline-manifests.yaml."
