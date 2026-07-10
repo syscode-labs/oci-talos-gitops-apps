@@ -16,9 +16,13 @@ patches:
   - file: ../patches/allow-scheduling.yaml
   - file: ../patches/inline-manifests.yaml
 controlPlane:
+  # Single control-plane: OCI Always Free Ampere is capped at 2 OCPU / 12 GB
+  # (2 instances), so the cluster can hold at most 2 nodes. One control-plane
+  # (single-member etcd) plus one worker. The allow-scheduling patch lets the
+  # control-plane run workloads too. Grow to 3 only if the tenancy gains quota.
   machineClass:
     name: oci-cp
-    size: 3
+    size: 1
 workers:
   - machineClass:
       name: oci-worker
