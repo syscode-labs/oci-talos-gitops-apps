@@ -8,6 +8,17 @@ set -euo pipefail
 CILIUM_VERSION="${CILIUM_VERSION:-1.17.2}"
 ARGOCD_VERSION="${ARGOCD_VERSION:-v2.14.4}"
 
+# Argo topology selector.
+#   hub        : omit in-cluster Argo — a central hub Argo (on the Omni VM k8s) manages
+#                this cluster as a spoke (default for this homelab).
+#   in-cluster : bootstrap Argo CD + root App-of-Apps inside this cluster.
+#   Cilium is always in-cluster (it is the CNI).
+ARGO_MODE="${ARGO_MODE:-hub}"
+case "$ARGO_MODE" in
+  in-cluster|hub) ;;
+  *) echo "ARGO_MODE must be 'in-cluster' or 'hub', got '${ARGO_MODE}'" >&2; exit 1 ;;
+esac
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATCH_FILE="${SCRIPT_DIR}/../patches/inline-manifests.yaml"
 TMPDIR=$(mktemp -d)
@@ -29,23 +40,26 @@ helm template cilium cilium/cilium \
   --set hubble.ui.enabled=true \
   > "${TMPDIR}/cilium.yaml"
 
-echo "==> Downloading Argo CD ${ARGOCD_VERSION}..."
-curl -sL "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml" \
-  > "${TMPDIR}/argocd.yaml"
+if [ "$ARGO_MODE" = "in-cluster" ]; then
+  echo "==> Downloading Argo CD ${ARGOCD_VERSION}..."
+  curl -sL "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml" \
+    > "${TMPDIR}/argocd.yaml"
+  ARGOCD_CONTENT=$(sed 's/^/        /' "${TMPDIR}/argocd.yaml")
+fi
 
 CILIUM_CONTENT=$(sed 's/^/        /' "${TMPDIR}/cilium.yaml")
-ARGOCD_CONTENT=$(sed 's/^/        /' "${TMPDIR}/argocd.yaml")
 
-echo "==> Writing ${PATCH_FILE}..."
+echo "==> Writing ${PATCH_FILE} (ARGO_MODE=${ARGO_MODE})..."
 cat > "${PATCH_FILE}" <<EOF
 # Talos inline manifests applied during cluster bootstrap by the first control plane node.
 # These run before any workload scheduler is up, so they must be self-contained YAML.
 #
 # REGENERATE after Cilium/Argo CD version bumps:
-#   mise run oci:generate-manifests
+#   mise run oci:generate-manifests                        # central hub Argo (default)
+#   ARGO_MODE=in-cluster mise run oci:generate-manifests   # in-cluster Argo + App-of-Apps
 #
+# ARGO_MODE: ${ARGO_MODE}
 # Cilium: ${CILIUM_VERSION} — kubeProxyReplacement=true, KubePrism (localhost:7445)
-# Argo CD: ${ARGOCD_VERSION} — raw install manifest + root App-of-Apps
 
 cluster:
   inlineManifests:
@@ -53,6 +67,10 @@ cluster:
       contents: |
         # cilium v${CILIUM_VERSION} — generated $(date -u +%Y-%m-%d)
 ${CILIUM_CONTENT}
+EOF
+
+if [ "$ARGO_MODE" = "in-cluster" ]; then
+cat >> "${PATCH_FILE}" <<EOF
 
     - name: argocd
       contents: |
@@ -80,5 +98,46 @@ ${ARGOCD_CONTENT}
               prune: true
               selfHeal: true
 EOF
+else
+cat >> "${PATCH_FILE}" <<'EOF'
 
-echo "==> Done. Commit omni/patches/inline-manifests.yaml."
+    # ARGO_MODE=hub — no in-cluster Argo. A central hub Argo (on the Omni VM k8s) manages
+    # this cluster as a spoke. This block ships the ServiceAccount the hub authenticates as,
+    # so the token exists from first boot. Registration (read token → sops → commit) is the
+    # single manual step, documented once in:
+    #   syscode-ai-internal-plans/projects/imp/docs/plans/2026-07-11-argo-hub-spoke-registration-runbook.md
+    - name: argocd-manager
+      contents: |
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: argocd-manager
+          namespace: kube-system
+        ---
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: argocd-manager
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: cluster-admin
+        subjects:
+          - kind: ServiceAccount
+            name: argocd-manager
+            namespace: kube-system
+        ---
+        # Non-expiring legacy SA token (auto-token Secrets removed in k8s 1.24). Deliberate:
+        # a bound short-lived token can't be pre-committed for GitOps registration.
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: argocd-manager-token
+          namespace: kube-system
+          annotations:
+            kubernetes.io/service-account.name: argocd-manager
+        type: kubernetes.io/service-account-token
+EOF
+fi
+
+echo "==> Done (ARGO_MODE=${ARGO_MODE}). Commit omni/patches/inline-manifests.yaml."
