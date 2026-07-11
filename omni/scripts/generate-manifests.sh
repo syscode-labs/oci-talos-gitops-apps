@@ -9,10 +9,11 @@ CILIUM_VERSION="${CILIUM_VERSION:-1.17.2}"
 ARGOCD_VERSION="${ARGOCD_VERSION:-v2.14.4}"
 
 # Argo topology selector.
-#   in-cluster : bootstrap Argo CD + root App-of-Apps inside this cluster (default).
 #   hub        : omit in-cluster Argo — a central hub Argo (on the Omni VM k8s) manages
-#                this cluster as a spoke. Cilium is always in-cluster (it is the CNI).
-ARGO_MODE="${ARGO_MODE:-in-cluster}"
+#                this cluster as a spoke (default for this homelab).
+#   in-cluster : bootstrap Argo CD + root App-of-Apps inside this cluster.
+#   Cilium is always in-cluster (it is the CNI).
+ARGO_MODE="${ARGO_MODE:-hub}"
 case "$ARGO_MODE" in
   in-cluster|hub) ;;
   *) echo "ARGO_MODE must be 'in-cluster' or 'hub', got '${ARGO_MODE}'" >&2; exit 1 ;;
@@ -54,8 +55,8 @@ cat > "${PATCH_FILE}" <<EOF
 # These run before any workload scheduler is up, so they must be self-contained YAML.
 #
 # REGENERATE after Cilium/Argo CD version bumps:
-#   mise run oci:generate-manifests            # in-cluster Argo (default)
-#   ARGO_MODE=hub mise run oci:generate-manifests   # central hub Argo, no in-cluster Argo
+#   mise run oci:generate-manifests                        # central hub Argo (default)
+#   ARGO_MODE=in-cluster mise run oci:generate-manifests   # in-cluster Argo + App-of-Apps
 #
 # ARGO_MODE: ${ARGO_MODE}
 # Cilium: ${CILIUM_VERSION} — kubeProxyReplacement=true, KubePrism (localhost:7445)
