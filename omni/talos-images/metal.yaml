@@ -4,5 +4,5 @@ kubernetes_version: v1.36.2
 platform: metal
 image_artifact: metal-arm64.qcow2
 schematic_id: 4a0d65c669d46663f377e7161e50cfd570c401f26fd9e7bda34a0216b6f1922b
-oci_image_ocid: ocid1.image.oc1.uk-london-1.aaaaaaaagkqxddl3oceoqjrej2rznawmq5pu7nt26wt6pkbrxcesxyvy7yoq
-updated_at: 2026-07-13T00:56:28Z
+oci_image_ocid: ocid1.image.oc1.uk-london-1.aaaaaaaa2tjvqg3mgfw4wv6f7yjla4hnx6xezz6pep6iusxerl7ade7fr5gq
+updated_at: 2026-07-13T01:10:36Z
